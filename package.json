@@ -12,6 +12,7 @@
   "scripts": {
     "build:shared": "npm run build --workspace=shared",
     "build": "npm run build:shared && npm run build --workspaces --if-present",
+    "db:setup": "npm run db:setup --workspace=backend",
     "test": "npm run test --workspaces --if-present",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",

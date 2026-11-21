@@ -1,5 +1,6 @@
 import { PrismaClient, UserRole, BatchStatus, ApprovalStage, ApprovalDecision } from '@prisma/client';
 import crypto from 'crypto';
+import { applyDatabaseInvariants } from '../src/db/prisma.js';
 
 const prisma = new PrismaClient();
 
@@ -98,6 +99,13 @@ export const SEED_DATA = {
 
 async function main() {
   console.log('[Seed] Starting idempotent database seed...');
+
+  // Automatically ensure custom SQL invariants (sequence, audit trigger, indexes) are applied
+  try {
+    await applyDatabaseInvariants();
+  } catch (err) {
+    console.warn('[Seed] Notice: Could not apply custom invariants directly (normal if DB not running or non-Postgres):', err);
+  }
 
   // 1. Seed Districts
   for (const dist of Object.values(SEED_DATA.districts)) {
