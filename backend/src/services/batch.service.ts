@@ -123,6 +123,13 @@ export class BatchService {
       submissionVersion: b.submissionVersion,
       districtApprovalsCount: b.approvals.filter((a) => a.submissionVersion === b.submissionVersion).length,
       districtApprovalsRequired: 2,
+      approvals: b.approvals.map((a) => ({
+        id: a.id,
+        actorId: a.actorId,
+        decision: a.decision as ApprovalDecision,
+        stage: a.stage as ApprovalStage,
+        submissionVersion: a.submissionVersion
+      })),
       stateEnteredAt: b.stateEnteredAt.toISOString(),
       escalatedAt: b.escalatedAt ? b.escalatedAt.toISOString() : null,
       lastFeedback: b.lastFeedback
@@ -594,10 +601,27 @@ export class BatchService {
           });
 
           for (const cand of candidates) {
-            // Sequence-based unique certificate number
-            const seqResult: any[] = await tx.$queryRawUnsafe(`SELECT nextval('cert_serial_seq') as seq`);
-            const seq = seqResult[0]?.seq || Math.floor(100000 + Math.random() * 900000);
-            const certNumber = `PSM-2026-${distCode}-${seq}`;
+            // Sequence-based unique certificate number with collision guard
+            let certNumber = '';
+            while (true) {
+              let seqVal: string;
+              try {
+                const seqResult: any[] = await tx.$queryRawUnsafe(`SELECT nextval('cert_serial_seq') as seq`);
+                seqVal = String(seqResult[0]?.seq ?? Math.floor(100100 + Math.random() * 900000));
+              } catch {
+                seqVal = Math.floor(100100 + Math.random() * 900000).toString();
+              }
+
+              const candidateCertNo = `PSM-2026-${distCode}-${seqVal}`;
+              const existing = await tx.certificate.findUnique({
+                where: { certificateNumber: candidateCertNo }
+              });
+
+              if (!existing) {
+                certNumber = candidateCertNo;
+                break;
+              }
+            }
 
             const rawToken = crypto.randomBytes(32).toString('hex');
             const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');

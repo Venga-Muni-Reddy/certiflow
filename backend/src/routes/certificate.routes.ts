@@ -1,12 +1,33 @@
 import { Router, Response, NextFunction } from 'express';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { certificateService } from '../services/certificate.service.js';
+import { prisma } from '../db/prisma.js';
 import { UserRole, RevokeCertificateSchema } from '@certiflow/shared';
 
 export const certificateRouter = Router();
 
 // Protected certificate endpoints
 certificateRouter.use(authenticate);
+
+/**
+ * GET /api/v1/certificates
+ * List all issued certificates (State Office oversight)
+ */
+certificateRouter.get('/certificates', async (_req: any, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const certificates = await prisma.certificate.findMany({
+      include: {
+        candidate: true,
+        batch: true
+      },
+      orderBy: { issuedAt: 'desc' },
+      take: 100
+    });
+    res.json({ certificates });
+  } catch (err) {
+    next(err);
+  }
+});
 
 /**
  * GET /api/v1/batches/:batchId/certificates

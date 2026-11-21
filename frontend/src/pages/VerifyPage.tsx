@@ -4,8 +4,9 @@ import { formatDate } from '../utils/formatters';
 
 interface PublicVerificationData {
   certificateNumber: string;
-  status: 'ISSUED' | 'REVOKED';
-  candidateNameMasked: string;
+  status: 'VALID' | 'ISSUED' | 'REVOKED';
+  candidateMaskedName?: string;
+  candidateNameMasked?: string;
   courseName: string;
   trainingCentreName: string;
   districtName: string;
@@ -44,7 +45,7 @@ export const VerifyPage: React.FC = () => {
         return;
       }
 
-      setResult(data.data);
+      setResult(data.data || data);
     } catch (err: any) {
       setErrorMessage(err.message || 'Verification network lookup failed.');
     } finally {
@@ -88,7 +89,7 @@ export const VerifyPage: React.FC = () => {
               type="text"
               value={certNumber}
               onChange={(e) => setCertNumber(e.target.value)}
-              placeholder="Enter Certificate Number (e.g., CRT-2026-HYD-100001)"
+              placeholder="Enter Certificate Number (e.g., PSM-2026-HYD-100001)"
               className="w-full pl-11 pr-4 py-3 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono"
             />
           </div>
@@ -116,17 +117,17 @@ export const VerifyPage: React.FC = () => {
           <span className="text-slate-400 font-medium">Quick Demo Lookups:</span>
           <button
             type="button"
-            onClick={() => setAndSearch('CRT-2026-HYD-100001')}
+            onClick={() => setAndSearch('PSM-2026-HYD-100001')}
             className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-mono font-medium transition-colors"
           >
-            CRT-2026-HYD-100001 (Valid)
+            PSM-2026-HYD-100001 (Valid)
           </button>
           <button
             type="button"
-            onClick={() => setAndSearch('CRT-2026-HYD-999999')}
+            onClick={() => setAndSearch('PSM-2026-HYD-999999')}
             className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-mono font-medium transition-colors"
           >
-            CRT-2026-HYD-999999 (Non-Existent)
+            PSM-2026-HYD-999999 (Non-Existent)
           </button>
         </div>
       </div>
@@ -135,7 +136,7 @@ export const VerifyPage: React.FC = () => {
       {searched && (
         <div className="transition-all duration-300">
           {/* Case 1: Verified Active Certificate */}
-          {result && result.status === 'ISSUED' && (
+          {result && (result.status === 'VALID' || result.status === 'ISSUED') && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-emerald-500 shadow-xl overflow-hidden">
               <div className="p-6 bg-emerald-500/10 border-b border-emerald-500/20 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -168,7 +169,7 @@ export const VerifyPage: React.FC = () => {
                       Candidate Name (Masked for Privacy)
                     </span>
                     <div className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">
-                      {result.candidateNameMasked}
+                      {result.candidateMaskedName || result.candidateNameMasked}
                     </div>
                   </div>
 
@@ -283,7 +284,7 @@ export const VerifyPage: React.FC = () => {
                   <div>
                     <span className="text-slate-400 uppercase font-semibold">Candidate</span>
                     <div className="font-mono font-bold text-slate-800 dark:text-slate-200 text-sm mt-0.5">
-                      {result.candidateNameMasked}
+                      {result.candidateMaskedName || result.candidateNameMasked}
                     </div>
                   </div>
                   <div>

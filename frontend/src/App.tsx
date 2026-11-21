@@ -16,20 +16,23 @@ export default function App() {
 
   // Poll or fetch escalated batches
   const checkEscalatedBatches = useCallback(async () => {
+    if (!token) return;
     try {
-      const res = await apiRequest<{ success: boolean; data: any[] }>('/batches');
-      const breached = (res.data || []).filter((b) => b.slaBreached);
+      const res = await apiRequest<any>('/batches');
+      const batchList = res.batches || res.data || (Array.isArray(res) ? res : []);
+      const breached = batchList.filter((b: any) => b.slaBreached);
       setEscalatedBatches(breached);
     } catch {
       // ignore
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
+    if (!token) return;
     checkEscalatedBatches();
     const interval = setInterval(checkEscalatedBatches, 10000);
     return () => clearInterval(interval);
-  }, [checkEscalatedBatches]);
+  }, [token, checkEscalatedBatches]);
 
   // Handle live Server-Sent Events (SSE)
   const handleSSEEvent = useCallback((event: SSEEventData) => {
@@ -56,7 +59,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-slate-400">Initializing CertiFlow Mission Environment...</p>
         </div>
       </div>

@@ -60,6 +60,13 @@ export interface BatchSummaryDTO {
   submissionVersion: number;
   districtApprovalsCount: number;
   districtApprovalsRequired: number;
+  approvals?: {
+    id: string;
+    actorId: string;
+    decision: ApprovalDecision;
+    stage: ApprovalStage;
+    submissionVersion: number;
+  }[];
   stateEnteredAt: string;
   escalatedAt?: string | null;
   lastFeedback?: string | null;

@@ -53,28 +53,30 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         formData.append('trainingCentreId', trainingCentreId);
       }
 
-      const res = await apiRequest<{
-        success: boolean;
-        data: {
-          batch: any;
-          candidateCount: number;
-        };
-      }>('/batches/ingest', {
+      const res = await apiRequest<any>('/batches/ingest', {
         method: 'POST',
         body: formData
       });
 
-      setSuccessMessage(`Successfully ingested ${res.data.candidateCount} candidates into ${res.data.batch.batchCode}!`);
+      const count = res.candidateCount ?? res.uploadedCount ?? res.data?.candidateCount ?? res.batch?.candidateCount ?? 'all';
+      const code = res.batch?.batchCode ?? res.data?.batch?.batchCode ?? res.batchCode ?? 'new batch';
+
+      setErrorMessage(null);
+      setErrorDetails(null);
+      setSuccessMessage(`Successfully ingested ${count} candidates into ${code}!`);
+
       setTimeout(() => {
         onSuccess();
         onClose();
       }, 1200);
     } catch (err: any) {
+      setSuccessMessage(null);
       if (err instanceof ApiError && err.statusCode === 422) {
         setErrorMessage(err.message);
         setErrorDetails(err.details || []);
       } else {
         setErrorMessage(err.message || 'An unexpected error occurred during ingestion.');
+        setErrorDetails(null);
       }
     } finally {
       setIsLoading(false);
@@ -170,8 +172,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             </div>
           </div>
 
-          {/* Atomic Ingestion Error Report (Moment #1) */}
-          {errorMessage && (
+          {/* Atomic Ingestion Error Report (Moment #1 - HTTP 422 with line errors) */}
+          {errorMessage && errorDetails && errorDetails.length > 0 && (
             <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl space-y-3">
               <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-semibold text-sm">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -181,37 +183,43 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 {errorMessage}
               </p>
 
-              {errorDetails && errorDetails.length > 0 && (
-                <div className="max-h-48 overflow-y-auto rounded-lg border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-slate-900 text-xs">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-rose-100/50 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200 sticky top-0">
-                      <tr>
-                        <th className="p-2 border-b border-rose-200 dark:border-rose-900 font-medium">Row</th>
-                        <th className="p-2 border-b border-rose-200 dark:border-rose-900 font-medium">Field</th>
-                        <th className="p-2 border-b border-rose-200 dark:border-rose-900 font-medium">Error Description</th>
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-slate-900 text-xs">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-rose-100/50 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200 sticky top-0">
+                    <tr>
+                      <th className="p-2 border-b border-rose-200 dark:border-rose-900 font-medium">Row</th>
+                      <th className="p-2 border-b border-rose-200 dark:border-rose-900 font-medium">Field</th>
+                      <th className="p-2 border-b border-rose-200 dark:border-rose-900 font-medium">Error Description</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-rose-100 dark:divide-rose-950/40 text-slate-700 dark:text-slate-300">
+                    {errorDetails.map((err, idx) => (
+                      <tr key={idx} className="hover:bg-rose-50/50 dark:hover:bg-rose-950/20">
+                        <td className="p-2 font-mono text-rose-600 dark:text-rose-400 font-bold">
+                          Line {err.row}
+                        </td>
+                        <td className="p-2 font-mono">{err.field}</td>
+                        <td className="p-2">{err.message}</td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-rose-100 dark:divide-rose-950/40 text-slate-700 dark:text-slate-300">
-                      {errorDetails.map((err, idx) => (
-                        <tr key={idx} className="hover:bg-rose-50/50 dark:hover:bg-rose-950/20">
-                          <td className="p-2 font-mono text-rose-600 dark:text-rose-400 font-bold">
-                            Line {err.row}
-                          </td>
-                          <td className="p-2 font-mono">{err.field}</td>
-                          <td className="p-2">{err.message}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
-          {/* Success banner */}
+          {/* Generic Error Banner (if not line-level 422) */}
+          {errorMessage && (!errorDetails || errorDetails.length === 0) && (
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-lg flex items-center gap-2 text-rose-800 dark:text-rose-300 text-xs">
+              <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {/* Success Banner (Green) */}
           {successMessage && (
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-center gap-2 text-emerald-800 dark:text-emerald-300 text-xs font-medium">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/50 border-2 border-emerald-500 rounded-xl flex items-center gap-3 text-emerald-900 dark:text-emerald-200 text-sm font-semibold shadow-sm animate-fade-in">
+              <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
               <span>{successMessage}</span>
             </div>
           )}

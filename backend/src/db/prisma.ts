@@ -1,6 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import fs from 'fs';
-import path from 'path';
 
 // Prevent multiple instances of Prisma Client in development
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
@@ -21,7 +19,7 @@ if (process.env.NODE_ENV !== 'production') {
  */
 export async function applyDatabaseInvariants(): Promise<void> {
   try {
-    await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS cert_serial_seq START WITH 100001 INCREMENT BY 1;`);
+    await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS cert_serial_seq START WITH 100101 INCREMENT BY 1;`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_outbox_unpublished ON outbox_events (created_at ASC) WHERE published_at IS NULL;`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_batches_sla_pending ON batches (state_entered_at ASC) WHERE escalated_at IS NULL AND status IN ('PENDING_DISTRICT', 'PENDING_QUALITY', 'PENDING_STATE');`);
     await prisma.$executeRawUnsafe(`CREATE OR REPLACE FUNCTION prevent_audit_log_mutation() RETURNS TRIGGER AS $$ BEGIN RAISE EXCEPTION 'audit_logs is append-only; UPDATE and DELETE operations are strictly forbidden'; END; $$ LANGUAGE plpgsql;`);

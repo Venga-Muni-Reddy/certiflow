@@ -29,6 +29,62 @@ batchRouter.post(
 );
 
 /**
+ * POST /api/v1/batches/ingest
+ * Atomic create & spreadsheet candidate ingestion in a single step (Moment #1)
+ */
+batchRouter.post(
+  '/ingest',
+  requireRole([UserRole.TRAINING_CENTRE]),
+  uploadMiddleware.single('file'),
+  async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.file) {
+        res.status(400).json({
+          error: {
+            code: 'FILE_MISSING',
+            message: 'Multipart field "file" containing .csv or .xlsx spreadsheet is required.',
+            correlationId: req.correlationId
+          }
+        });
+        return;
+      }
+
+      // 2-pass atomic validation
+      const parseResult = excelService.parseAndValidateSpreadsheet(req.file.buffer, req.file.originalname);
+
+      if (!parseResult.valid) {
+        res.status(422).json({
+          error: {
+            code: 'SPREADSHEET_VALIDATION_FAILED',
+            message: `${parseResult.errors.length} validation error(s) found. No candidates were saved.`,
+            correlationId: req.correlationId,
+            details: parseResult.errors
+          }
+        });
+        return;
+      }
+
+      const courseName = req.body.courseName || 'Full Stack Web Development';
+      const batch = await batchService.createBatch(courseName, req.user, req.correlationId);
+
+      const uploadResult = await batchService.uploadCandidates(
+        batch.id,
+        parseResult.rows,
+        req.user,
+        req.correlationId
+      );
+
+      res.status(201).json({
+        batch,
+        candidateCount: uploadResult.uploadedCount
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
  * GET /api/v1/batches
  * List batches (role-scoped)
  */
@@ -147,11 +203,13 @@ batchRouter.post(
  * Record officer approval, rejection, or send-back with concurrency lock (Moments #2 & #3)
  */
 batchRouter.post(
-  '/:batchId/decisions',
+  ['/:batchId/decisions', '/:batchId/decide'],
   requireRole([UserRole.DISTRICT_OFFICER, UserRole.QUALITY_TEAM, UserRole.STATE_OFFICE]),
   async (req: any, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const parsed = DecisionSchema.parse(req.body);
+      const decision = req.body.decision;
+      const reason = req.body.reason || req.body.comments;
+      const parsed = DecisionSchema.parse({ decision, reason });
       const result = await batchService.recordDecision(
         req.params.batchId,
         parsed.decision,

@@ -27,8 +27,8 @@ export const BatchDetailModal: React.FC<BatchDetailModalProps> = ({
       try {
         setIsLoading(true);
         setError(null);
-        const res = await apiRequest<{ success: boolean; data: any }>(`/batches/${batchId}`);
-        setBatch(res.data);
+        const res = await apiRequest<any>(`/batches/${batchId}`);
+        setBatch(res.data || res.batch || res);
       } catch (err: any) {
         setError(err.message || 'Failed to load batch details');
       } finally {
