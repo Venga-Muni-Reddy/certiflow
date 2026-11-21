@@ -1,0 +1,17 @@
+{
+  "name": "@certiflow/shared",
+  "version": "1.0.0",
+  "description": "CertiFlow shared domain types, interfaces, enums, and Zod validators",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
