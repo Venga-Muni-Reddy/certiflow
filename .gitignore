@@ -8,6 +8,10 @@ dist/
 build/
 *.tsbuildinfo
 coverage/
+backend/prisma/*.js
+backend/prisma/*.js.map
+backend/prisma/*.d.ts
+backend/prisma/*.d.ts.map
 
 # Environment files (exclude secrets, keep templates)
 **/.env

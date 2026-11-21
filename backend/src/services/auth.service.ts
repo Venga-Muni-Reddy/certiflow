@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../db/prisma.js';
 import { config } from '../config/env.js';
 import { UserRole, DemoUserDTO, AuthResponseDTO } from '@certiflow/shared';
-import { SEED_DATA } from '../../prisma/seed.js';
+import { SEED_DATA } from '../constants/demoUsers.js';
 
 export class AuthService {
   /**
@@ -56,8 +56,8 @@ export class AuthService {
         name: u.name,
         role: u.role as unknown as UserRole,
         scopeLabel,
-        districtId: u.districtId || null,
-        trainingCentreId: u.trainingCentreId || null
+        districtId: (u as any).districtId || null,
+        trainingCentreId: (u as any).trainingCentreId || null
       };
     });
   }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/index.js';
-import { SEED_DATA } from '../prisma/seed.js';
+import { SEED_DATA } from '../src/constants/demoUsers.js';
 
 describe('CertiFlow Backend API Endpoints (Phase 4)', () => {
   it('GET /health returns healthy status', async () => {
