@@ -318,11 +318,13 @@ async function main() {
   console.log('[Seed] Database seeding completed successfully.');
 }
 
-main()
-  .catch((e) => {
-    console.error('[Seed] Error during seeding:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (process.argv[1]?.includes('seed')) {
+  main()
+    .catch((e) => {
+      console.error('[Seed] Error during seeding:', e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
