@@ -1,4 +1,5 @@
 import { Router, Response, NextFunction } from 'express';
+import { prisma } from '../db/prisma.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { uploadMiddleware } from '../middleware/upload.js';
 import { batchService } from '../services/batch.service.js';
@@ -173,6 +174,12 @@ batchRouter.post(
   requireRole([UserRole.TRAINING_CENTRE]),
   async (req: any, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const existing = await prisma.batch.findUnique({ where: { id: req.params.batchId } });
+      if (existing?.status === BatchStatus.CHANGES_REQUESTED) {
+        const batch = await batchService.resubmitBatch(req.params.batchId, req.user, req.correlationId);
+        res.json(batch);
+        return;
+      }
       const batch = await batchService.submitBatch(req.params.batchId, req.user, req.correlationId);
       res.json(batch);
     } catch (err) {

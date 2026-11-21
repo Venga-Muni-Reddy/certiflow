@@ -13,7 +13,8 @@ import {
   AlertOctagon,
   Download,
   Filter,
-  CheckCircle2
+  CheckCircle2,
+  FileUp
 } from 'lucide-react';
 import { BatchStatus, UserRole } from '@certiflow/shared';
 import { DemoUser } from '../hooks/useAuth';
@@ -38,6 +39,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser }) => 
 
   // Modals
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [reuploadBatch, setReuploadBatch] = useState<{ id: string; batchCode: string; courseName: string } | null>(null);
   const [inspectBatchId, setInspectBatchId] = useState<string | null>(null);
   const [decisionBatch, setDecisionBatch] = useState<any | null>(null);
   const [revokeCert, setRevokeCert] = useState<any | null>(null);
@@ -67,10 +69,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser }) => 
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Handle batch submit (TC submitting DRAFT or CHANGES_REQUESTED batch)
-  const handleSubmitBatch = async (batchId: string) => {
+  // Handle batch submit / resubmit (TC submitting DRAFT or CHANGES_REQUESTED batch)
+  const handleSubmitBatch = async (batchId: string, status?: string) => {
     try {
-      await apiRequest(`/batches/${batchId}/submit`, { method: 'POST' });
+      const endpoint = status === BatchStatus.CHANGES_REQUESTED
+        ? `/batches/${batchId}/resubmit`
+        : `/batches/${batchId}/submit`;
+      await apiRequest(endpoint, { method: 'POST' });
       await fetchDashboardData();
     } catch (err: any) {
       alert(`Submission failed: ${err.message}`);
@@ -297,14 +302,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser }) => 
                       <td className="p-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {canSubmit && (
-                            <button
-                              onClick={() => handleSubmitBatch(batch.id)}
-                              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium text-xs flex items-center gap-1 transition-colors"
-                              title="Submit batch for District Review"
-                            >
-                              <Send className="w-3 h-3" />
-                              <span>Submit</span>
-                            </button>
+                            <>
+                              <button
+                                onClick={() => setReuploadBatch({ id: batch.id, batchCode: batch.batchCode, courseName: batch.courseName })}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded font-medium text-xs flex items-center gap-1 transition-colors"
+                                title="Upload updated candidate spreadsheet (.csv/.xlsx)"
+                              >
+                                <FileUp className="w-3 h-3 text-indigo-500" />
+                                <span>Update Sheet</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleSubmitBatch(batch.id, batch.status)}
+                                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium text-xs flex items-center gap-1 transition-colors"
+                                title={batch.status === BatchStatus.CHANGES_REQUESTED ? 'Resubmit corrected batch for review (Moment #6)' : 'Submit batch for District Review'}
+                              >
+                                <Send className="w-3 h-3" />
+                                <span>{batch.status === BatchStatus.CHANGES_REQUESTED ? 'Resubmit' : 'Submit'}</span>
+                              </button>
+                            </>
                           )}
 
                           {canDecide && (
@@ -429,13 +445,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser }) => 
         </div>
       )}
 
-      {/* Upload Modal */}
+      {/* Upload Modal (New Batch) */}
       <UploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
         onSuccess={fetchDashboardData}
         trainingCentreId={currentUser?.trainingCentreId}
       />
+
+      {/* Upload Modal (Update Existing Cohort / Moment #6 Resubmission) */}
+      {reuploadBatch && (
+        <UploadModal
+          isOpen={!!reuploadBatch}
+          onClose={() => setReuploadBatch(null)}
+          onSuccess={() => {
+            setReuploadBatch(null);
+            fetchDashboardData();
+          }}
+          targetBatchId={reuploadBatch.id}
+          targetBatchCode={reuploadBatch.batchCode}
+          targetCourseName={reuploadBatch.courseName}
+        />
+      )}
 
       {/* Decision Modal */}
       <DecisionModal

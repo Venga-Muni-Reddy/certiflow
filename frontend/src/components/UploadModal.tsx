@@ -8,15 +8,21 @@ interface UploadModalProps {
   onClose: () => void;
   onSuccess: () => void;
   trainingCentreId?: string | null;
+  targetBatchId?: string | null;
+  targetBatchCode?: string | null;
+  targetCourseName?: string | null;
 }
 
 export const UploadModal: React.FC<UploadModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  trainingCentreId
+  trainingCentreId,
+  targetBatchId,
+  targetBatchCode,
+  targetCourseName
 }) => {
-  const [courseName, setCourseName] = useState('Full Stack Web Development');
+  const [courseName, setCourseName] = useState(targetCourseName || 'Full Stack Web Development');
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorDetails, setErrorDetails] = useState<any[] | null>(null);
@@ -48,22 +54,32 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('courseName', courseName);
-      if (trainingCentreId) {
-        formData.append('trainingCentreId', trainingCentreId);
+      if (!targetBatchId) {
+        formData.append('courseName', courseName);
+        if (trainingCentreId) {
+          formData.append('trainingCentreId', trainingCentreId);
+        }
       }
 
-      const res = await apiRequest<any>('/batches/ingest', {
+      const endpoint = targetBatchId
+        ? `/batches/${targetBatchId}/candidates/upload`
+        : '/batches/ingest';
+
+      const res = await apiRequest<any>(endpoint, {
         method: 'POST',
         body: formData
       });
 
       const count = res.candidateCount ?? res.uploadedCount ?? res.data?.candidateCount ?? res.batch?.candidateCount ?? 'all';
-      const code = res.batch?.batchCode ?? res.data?.batch?.batchCode ?? res.batchCode ?? 'new batch';
+      const code = targetBatchCode ?? res.batch?.batchCode ?? res.data?.batch?.batchCode ?? res.batchCode ?? 'new batch';
 
       setErrorMessage(null);
       setErrorDetails(null);
-      setSuccessMessage(`Successfully ingested ${count} candidates into ${code}!`);
+      setSuccessMessage(
+        targetBatchId
+          ? `Successfully replaced candidates with ${count} records for ${code}!`
+          : `Successfully ingested ${count} candidates into ${code}!`
+      );
 
       setTimeout(() => {
         onSuccess();
@@ -94,10 +110,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                Ingest Candidate Batch (Moment #1)
+                {targetBatchId
+                  ? `Update Candidates Spreadsheet (${targetBatchCode || 'Batch'})`
+                  : 'Ingest Candidate Batch (Moment #1)'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Atomic 2-pass ingestion. Any malformed row will abort the entire batch.
+                {targetBatchId
+                  ? 'Atomically replaces the candidate cohort for resubmission (Moment #6)'
+                  : 'Atomic 2-pass ingestion. Any malformed row will abort the entire batch.'}
               </p>
             </div>
           </div>
@@ -134,19 +154,25 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-              Course / Trade Name
-            </label>
-            <input
-              type="text"
-              required
-              value={courseName}
-              onChange={(e) => setCourseName(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              placeholder="e.g. Data Analytics Specialist"
-            />
-          </div>
+          {!targetBatchId ? (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Course / Trade Name
+              </label>
+              <input
+                type="text"
+                required
+                value={courseName}
+                onChange={(e) => setCourseName(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                placeholder="e.g. Data Analytics Specialist"
+              />
+            </div>
+          ) : (
+            <div className="p-3 bg-indigo-50/60 dark:bg-indigo-950/30 rounded-lg border border-indigo-200 dark:border-indigo-800 text-xs text-indigo-900 dark:text-indigo-200">
+              <span className="font-semibold">Batch:</span> {targetBatchCode} &bull; <span className="font-semibold">Course:</span> {targetCourseName || courseName}
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
@@ -242,12 +268,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               {isLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Validating Atomically...</span>
+                  <span>{targetBatchId ? 'Updating...' : 'Validating Atomically...'}</span>
                 </>
               ) : (
                 <>
                   <Upload className="w-4 h-4" />
-                  <span>Ingest Batch</span>
+                  <span>{targetBatchId ? 'Update & Replace Candidates' : 'Ingest Batch'}</span>
                 </>
               )}
             </button>
