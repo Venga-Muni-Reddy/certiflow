@@ -38,6 +38,9 @@ class RedisService {
       });
 
       this.subscriber = this.client.duplicate();
+      this.subscriber.on('error', (_err) => {
+        // Silent fallback without crashing server
+      });
     } catch (_err) {
       this.isConnected = false;
       console.warn('[Redis] Warning: Redis unavailable. Running in memory-event fallback mode.');
