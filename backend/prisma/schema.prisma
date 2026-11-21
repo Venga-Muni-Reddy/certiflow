@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  TRAINING_CENTRE
+  DISTRICT_OFFICER
+  QUALITY_TEAM
+  STATE_OFFICE
+}
+
+enum BatchStatus {
+  DRAFT
+  PENDING_DISTRICT
+  PENDING_QUALITY
+  PENDING_STATE
+  CHANGES_REQUESTED
+  REJECTED
+  APPROVED_ISSUING
+  ISSUED
+}
+
+enum ApprovalStage {
+  DISTRICT
+  QUALITY
+  STATE
+}
+
+enum ApprovalDecision {
+  APPROVE
+  REJECT
+  SEND_BACK
+}
+
+enum ApprovalRecordStatus {
+  ACTIVE
+  SUPERSEDED
+}
+
+enum CertificateStatus {
+  PENDING_GENERATION
+  GENERATED
+  DELIVERED
+  DELIVERY_FAILED
+  REVOKED
+}
+
+model District {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @db.VarChar(120)
+  code            String           @unique @db.VarChar(16)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  trainingCentres TrainingCentre[]
+  users           User[]
+  batches         Batch[]
+
+  @@map("districts")
+}
+
+model TrainingCentre {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(200)
+  code       String   @unique @db.VarChar(24)
+  districtId String   @map("district_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  district District @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  users    User[]
+  batches  Batch[]
+
+  @@index([districtId])
+  @@map("training_centres")
+}
+
+model User {
+  id               String   @id @default(uuid()) @db.Uuid
+  name             String   @db.VarChar(120)
+  email            String   @unique @db.VarChar(180)
+  role             UserRole
+  districtId       String?  @map("district_id") @db.Uuid
+  trainingCentreId String?  @map("training_centre_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  district            District?       @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  trainingCentre      TrainingCentre? @relation(fields: [trainingCentreId], references: [id], onDelete: Restrict)
+  approvals           BatchApproval[]
+  revokedCertificates Certificate[]   @relation("RevokedByUser")
+
+  @@index([role, districtId])
+  @@map("users")
+}
+
+model Batch {
+  id                String      @id @default(uuid()) @db.Uuid
+  batchCode         String      @unique @map("batch_code") @db.VarChar(40)
+  trainingCentreId  String      @map("training_centre_id") @db.Uuid
+  districtId        String      @map("district_id") @db.Uuid
+  courseName        String      @map("course_name") @db.VarChar(160)
+  status            BatchStatus @default(DRAFT)
+  candidateCount    Int         @default(0) @map("candidate_count")
+  submissionVersion Int         @default(1) @map("submission_version")
+  version           Int         @default(1)
+  stateEnteredAt    DateTime    @default(now()) @map("state_entered_at") @db.Timestamptz
+  escalatedAt       DateTime?   @map("escalated_at") @db.Timestamptz
+  lastFeedback      String?     @map("last_feedback") @db.Text
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  trainingCentre TrainingCentre   @relation(fields: [trainingCentreId], references: [id], onDelete: Restrict)
+  district       District         @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  candidates     BatchCandidate[]
+  approvals      BatchApproval[]
+  certificates   Certificate[]
+
+  @@index([status, districtId])
+  @@index([status, stateEnteredAt])
+  @@index([trainingCentreId])
+  @@map("batches")
+}
+
+model BatchCandidate {
+  id             String   @id @default(uuid()) @db.Uuid
+  batchId        String   @map("batch_id") @db.Uuid
+  rowNumber      Int      @map("row_number")
+  fullName       String   @map("full_name") @db.VarChar(160)
+  phoneNumber    String   @map("phone_number") @db.VarChar(20)
+  candidateGovId String   @map("candidate_gov_id") @db.VarChar(64)
+  assessmentScore Decimal @map("assessment_score") @db.Decimal(5, 2)
+  completionDate DateTime @map("completion_date") @db.Date
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  batch       Batch        @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  certificate Certificate?
+
+  @@unique([batchId, candidateGovId])
+  @@index([batchId])
+  @@map("batch_candidates")
+}
+
+model BatchApproval {
+  id                String               @id @default(uuid()) @db.Uuid
+  batchId           String               @map("batch_id") @db.Uuid
+  submissionVersion Int                  @map("submission_version")
+  stage             ApprovalStage
+  actorId           String               @map("actor_id") @db.Uuid
+  decision          ApprovalDecision
+  reason            String?              @db.Text
+  status            ApprovalRecordStatus @default(ACTIVE)
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  actor User  @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@unique([batchId, submissionVersion, stage, actorId])
+  @@index([batchId, submissionVersion, status])
+  @@map("batch_approvals")
+}
+
+model Certificate {
+  id                String            @id @default(uuid()) @db.Uuid
+  certificateNumber String            @unique @map("certificate_number") @db.VarChar(48)
+  batchId           String            @map("batch_id") @db.Uuid
+  candidateId       String            @unique @map("candidate_id") @db.Uuid
+  downloadTokenHash String            @unique @map("download_token_hash") @db.VarChar(64)
+  s3ObjectKey       String?           @map("s3_object_key") @db.VarChar(255)
+  status            CertificateStatus @default(PENDING_GENERATION)
+  deliveryAttempts  Int               @default(0) @map("delivery_attempts")
+  lastDeliveryError String?           @map("last_delivery_error") @db.Text
+  issuedAt          DateTime          @default(now()) @map("issued_at") @db.Timestamptz
+  revokedAt         DateTime?         @map("revoked_at") @db.Timestamptz
+  revokedBy         String?           @map("revoked_by") @db.Uuid
+  revocationReason  String?           @map("revocation_reason") @db.Text
+
+  batch         Batch          @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  candidate     BatchCandidate @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  revokedByUser User?          @relation("RevokedByUser", fields: [revokedBy], references: [id], onDelete: Restrict)
+
+  @@index([batchId])
+  @@index([status])
+  @@map("certificates")
+}
+
+model OutboxEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  aggregateType String    @map("aggregate_type") @db.VarChar(64)
+  aggregateId   String    @map("aggregate_id") @db.Uuid
+  eventType     String    @map("event_type") @db.VarChar(80)
+  payload       Json      @db.JsonB
+  correlationId String    @map("correlation_id") @db.VarChar(64)
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([createdAt])
+  @@map("outbox_events")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  entityType    String   @map("entity_type") @db.VarChar(64)
+  entityId      String   @map("entity_id") @db.Uuid
+  actorId       String?  @map("actor_id") @db.Uuid
+  actorRole     String   @map("actor_role") @db.VarChar(40)
+  action        String   @db.VarChar(80)
+  metadata      Json     @default("{}") @db.JsonB
+  correlationId String   @map("correlation_id") @db.VarChar(64)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([entityType, entityId, createdAt])
+  @@index([correlationId])
+  @@map("audit_logs")
+}
